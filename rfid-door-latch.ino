@@ -67,7 +67,7 @@ void runState(unsigned int s)
      case TAG_REMOVE_STATE:
        remove_tag(tagUID);
        break;
-       
+          
      default:
        Serial.println("No such state exists!");
        delay(1000);
@@ -78,23 +78,38 @@ void runState(unsigned int s)
 void load_valid_tags()
 {
   int addr = 0;
-  char val = ' ';
+  char val = ' \0';
   unsigned long uid;
+  char nameChar[11];
   Serial.println("Loading tags from EEPROM:\n---");
   while(val != 'E')
   {
     val = EEPROM.read(addr);
     if (val == 'T')
     {
-      uid = (EEPROM.read(addr+1) << 24) + (EEPROM.read(addr+2) << 16) + (EEPROM.read(addr+3) << 8) + EEPROM.read(addr+4);
+      addr+=2;
+      for(int i = 0; i < 11; i++)
+      {
+        nameChar[i] = {'\0'}; 
+      }
+      for(int i = 0; i < 11; i++)
+      {
+        nameChar[i] = EEPROM.read(addr+i);
+      }
+      String nameStr(nameChar);
+      nameArray.add(nameStr);
+      addr+=12;
+      uid = (EEPROM.read(addr) << 24) + (EEPROM.read(addr+1) << 16) + (EEPROM.read(addr+2) << 8) + EEPROM.read(addr+3);
       tagArray.add(uid);
-      addr += 5;
+      addr += 4;
     }
   }
   for(int i = 0; i < tagArray.size(); i++)
   {
     Serial.print(i+1);
     Serial.print(". ");
+    Serial.print(nameArray.get(i));
+    Serial.print(", ");
     Serial.println(tagArray.get(i), HEX); 
   }
   Serial.print("---\nDone! ");
@@ -143,6 +158,7 @@ void check_tag(unsigned long uid)
   boolean isValidTag = false;
   if(uid == MASTER_TAG_ID)
   {
+    clear();
     Serial.println("Master Tag Scanned! Would you like to add or remove a tag from the database?");
     Serial.println("[A (Add)] [R (Remove)] [Other Keys (Cancel)]");
     char val = '\0';
@@ -153,6 +169,7 @@ void check_tag(unsigned long uid)
         val = Serial.read();
       }
     }
+    clear();
     switch(val)
     {
       case 'A':
@@ -199,30 +216,31 @@ void check_tag(unsigned long uid)
 
 void add_tag(unsigned long newUid)
 { 
+  clear();
+  Serial.print("Please enter a name to associate with the tag: ");
+  char val = '\0';
+  char nameChar[11] = {'\0'};
+  int index = 0;
+  while(val != '\n')
+  {
+    if(Serial.available() > 0)
+    {
+      val = Serial.read();
+      if(val != '\n' && index != 10)
+      {
+        nameChar[index] = val;
+        index++;
+      }
+    }
+  }
+  clear();
+  String nameStr(nameChar);
+  Serial.println(nameStr);
   Serial.print("Adding tag to database...");
+  nameArray.add(nameStr);
   tagArray.add(newUid);
   Serial.println("Done!");
-  Serial.print("Writing changes to EEPROM...");
-  unsigned long uid;
-  unsigned char serByte[4];
-  int addr = 0;
-  for(int i = 0; i < tagArray.size(); i++)
-  {
-    uid = tagArray.get(i);
-    serByte[0] = (uid & 0xFF000000) >> 24;
-    serByte[1] = (uid & 0x00FF0000) >> 16;
-    serByte[2] = (uid & 0x0000FF00) >> 8;
-    serByte[3] = (uid & 0x000000FF);
-    
-    EEPROM.write(addr, 'T');
-    EEPROM.write(addr+1, serByte[0]);
-    EEPROM.write(addr+2, serByte[1]);
-    EEPROM.write(addr+3, serByte[2]);
-    EEPROM.write(addr+4, serByte[3]);
-    addr += 5;
-  }
-  EEPROM.write(addr, 'E');
-  Serial.println("Done!");
+  write_to_eeprom();
   addTagMode = false;
   delay(3500);
   Serial.println("Waiting for tag...");
@@ -247,32 +265,63 @@ void remove_tag(unsigned long oldUid)
   }
   else
   {
+    nameArray.remove(index);
     tagArray.remove(index);
     Serial.println("Done!");
-    Serial.print("Writing changes to EEPROM...");
-    unsigned long uid;
-    unsigned char serByte[4];
-    int addr = 0;
-    for(int i = 0; i < tagArray.size(); i++)
-    {
-      uid = tagArray.get(i);
-      serByte[0] = (uid & 0xFF000000) >> 24;
-      serByte[1] = (uid & 0x00FF0000) >> 16;
-      serByte[2] = (uid & 0x0000FF00) >> 8;
-      serByte[3] = (uid & 0x000000FF);
-    
-      EEPROM.write(addr, 'T');
-      EEPROM.write(addr+1, serByte[0]);
-      EEPROM.write(addr+2, serByte[1]);
-      EEPROM.write(addr+3, serByte[2]);
-      EEPROM.write(addr+4, serByte[3]);
-      addr += 5;
-    }
-    EEPROM.write(addr, 'E');
-    Serial.println("Done!");
   }
+  write_to_eeprom();
   rmTagMode = false;
   delay(3500);
   Serial.println("Waiting for tag...");
   state = TAG_READ_STATE;
+}
+
+void clear()
+{
+  while(Serial.available())
+  {
+    Serial.read();
+  } 
+}
+
+void write_to_eeprom()
+{
+  char nameChar[10] = {'\0'};
+  String nameStr;
+  unsigned long uid; 
+  unsigned char serByte[4];
+  int addr = 0;
+  Serial.print("Writing changes to EEPROM...");
+  for(int i = 0; i < tagArray.size(); i++)
+  {
+    nameStr = nameArray.get(i);
+    for(int j = 0; j < 11; j++)
+    {
+      nameChar[j] = '\0';
+    }
+    nameStr.toCharArray(nameChar, 11);
+    
+    uid = tagArray.get(i);
+    serByte[0] = (uid & 0xFF000000) >> 24;
+    serByte[1] = (uid & 0x00FF0000) >> 16;
+    serByte[2] = (uid & 0x0000FF00) >> 8;
+    serByte[3] = (uid & 0x000000FF);
+    
+    EEPROM.write(addr, 'T');
+    EEPROM.write(addr+1, 'N');
+    addr+=2;
+    for(int j = 0; j < 11; j++)
+    {
+      EEPROM.write(addr+j, nameChar[j]);
+    }
+    EEPROM.write(addr+11, 'U');
+    addr+=12;
+    for(int j = 0; j < 4; j++)
+    {
+      EEPROM.write(addr+j, serByte[j]);
+    }
+    addr += 4;
+  }
+  EEPROM.write(addr, 'E');
+  Serial.println("Done!");
 }
