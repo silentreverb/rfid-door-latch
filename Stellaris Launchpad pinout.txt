@@ -1,0 +1,31 @@
+20 oo 40	21 xx 1
+19 oo 39	22 xo 2
+18 oo 38	23 oo 3
+17 ox 37	24 oo 4
+16 xx 36	25 oo 5
+15 xx 35	26 oo 6
+14 xx 34	27 ox 7
+13 ox 33	28 xo 8
+12 ox 32	29 xo 9
+11 ox 31	30 ox 10
+
+1.  +3.3v
+7.  SCK(2)
+10. CS
+     
+14. MISO(2)
+15. MOSI(2)
+16. RESET
+     
+21. +5v
+22. GND
+28. EN (LCD)
+29. RS (LCD)
+     
+31. BLUE LED (LCD)
+32. GREEN LED (LCD)
+33. RED LED (LCD)
+34. DB7 (LCD)
+35. DB6 (LCD)
+36. DB5 (LCD)
+37. DB4 (LCD)

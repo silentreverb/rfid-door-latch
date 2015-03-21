@@ -3,6 +3,7 @@
 #include <EEPROM.h>
 #include <Mfrc522.h>
 #include <SPI.h>
+#include <Servo.h>
 
 #define LOAD_VALID_TAGS_STATE 0
 #define TAG_READ_STATE 1
@@ -25,12 +26,16 @@
 #define GRN_BKLGHT 32
 #define BLU_BKLGHT 31
 
+#define SERVO_DATA_PIN 6
+#define SERVO_POWER_PIN 5
+
 unsigned int state = LOAD_VALID_TAGS_STATE; //TAG_READ_STATE;
 
 #define MASTER_TAG_ID 0x793F9C1A
 boolean addTagMode = false;
 
 boolean isDoorLocked = false;
+Servo doorServo;
 
 unsigned long tagUID;
 String tagName = "";
@@ -45,6 +50,8 @@ void setup()
 {               
   Serial.begin(9600);                       // RFID reader SOUT pin connected to Serial RX pin at 2400bps 
   Serial.print("Initializing hardware...");
+  doorServo.attach(SERVO_DATA_PIN);
+  pinMode(SERVO_POWER_PIN, OUTPUT);
   pinMode(RED_BKLGHT, OUTPUT);
   pinMode(GRN_BKLGHT, OUTPUT);
   pinMode(BLU_BKLGHT, OUTPUT);
@@ -56,6 +63,8 @@ void setup()
   // Initialize the Card Reader
   digitalWrite(RFID_CS, LOW);
   pinMode(RED_LED, OUTPUT);
+  doorServo.writeMicroseconds(1500);
+  digitalWrite(SERVO_POWER_PIN, LOW);
   Mfrc522.Init();
   Serial.println("Done!");
 }
@@ -439,19 +448,26 @@ void door_latch()
    {
      case true:
        isDoorLocked = false;
+       digitalWrite(SERVO_POWER_PIN, HIGH);
+       doorServo.writeMicroseconds(2000);
        Serial.println("Door unlocked!");
-       break; 
-     
+       break;
+       
      case false:
        isDoorLocked = true;
+       digitalWrite(SERVO_POWER_PIN, HIGH);
+       doorServo.writeMicroseconds(1000);
        Serial.println("Door locked!");
        break; 
    }
+   delay(550);
+   doorServo.writeMicroseconds(1500);
    if(tagName != "")
    {
      greeter();
      delay(3500);
    }
+   digitalWrite(SERVO_POWER_PIN, LOW);
    door_status_msg();
    Serial.println("Waiting for tag...");
    state = TAG_READ_STATE;
